@@ -21,3 +21,10 @@ pnpm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+.cache/
+.eslintcache
+.nyc_output/
+blob-report/
