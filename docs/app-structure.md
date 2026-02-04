@@ -1,13 +1,13 @@
-# md-client: App Structure and Current Status
+# md-client: App Structure and Flow
 
-This document reflects the current application flow after adding popup editing.
+This document reflects the current implementation status.
 
 ## Goals
 
-- Open a local `.md` file from CLI with near-zero setup friction.
-- Render Markdown by default in the main Electron window.
-- Allow editing in a separate window while keeping the rendered view visible.
-- Keep edits and preview synchronized in real time.
+- Open a local `.md` file from CLI with minimal friction.
+- Render Markdown in the main Electron window by default.
+- Provide a dedicated popup editor for source editing and live preview.
+- Keep renderer/editor state synchronized during edits.
 
 ## Repository Layout
 
@@ -28,50 +28,52 @@ md-client/
     mdview.js
   docs/
     app-structure.md
+    assets/
+      main-render.png
+      editor-popup.png
   tests/
     e2e/
       open-file.spec.js
     fixtures/
       sample.md
+  README.md
   package.json
   requirements.txt
-  README.md
   playwright.config.js
 ```
 
-## Startup Sequence
+## Runtime Sequence
 
 1. User runs `node bin\mdview.js path\to\file.md`.
-2. `bin/mdview.js` launches Electron with the app path and markdown path args.
-3. `app/main.js` resolves the target `.md` file and creates the main window.
-4. Main window loads `app/renderer/index.html` (render-only mode).
-5. Renderer requests file contents and rendered HTML through preload IPC.
-6. Main process renders via Python (`render_markdown.py`) and returns HTML.
+2. CLI script launches Electron with app path + markdown path args.
+3. `app/main.js` resolves the markdown file path and opens main window.
+4. Main renderer (`index.html` + `renderer.js`) requests source/HTML via IPC.
+5. Main process renders markdown via Python (`render_markdown.py`).
+6. Main window shows rendered content.
 
 ## Window Model
 
 - Main window:
-  - Rendered Markdown only.
-  - `Edit` button to open editor popup.
-  - `Ctrl/Cmd + Click` on rendered text opens popup and requests cursor jump.
-- Editor popup window:
-  - Markdown textarea + live preview side-by-side.
-  - Formatting toolbar for common markdown operations.
-  - Shortcut help modal with discoverable key bindings.
-  - Save/Revert actions.
-  - `Ctrl/Cmd + S` save shortcut.
+  - Render-only markdown view
+  - `Edit` button
+  - `Ctrl/Cmd + Click` on rendered text to open editor near source location
+- Editor window:
+  - Source textarea + live preview
+  - Formatting toolbar
+  - Shortcut help modal
+  - Save/Revert/Done Editing actions
 
-## Sync Behavior
+When editor opens, main window is hidden. On `Done Editing`, editor closes and
+main window is restored.
+
+## Synchronization
 
 - Editor typing sends draft updates to main process.
-- Main process broadcasts draft updates to the main window preview.
-- Main window updates rendered output live while edits are unsaved.
-- Saving writes markdown to disk and clears draft state.
-- File watcher (`fs.watch`) notifies both windows when file changes on disk.
+- Main process forwards draft updates to main window for live preview sync.
+- Save writes markdown to disk and clears draft state.
+- `fs.watch()` broadcasts file changes to both windows.
 
-## IPC Surface
-
-Exposed through `app/preload.js`:
+## IPC Surface (`preload.js`)
 
 - `getFilePath`
 - `readMarkdown`
@@ -79,17 +81,33 @@ Exposed through `app/preload.js`:
 - `renderMarkdown`
 - `renderMarkdownContent`
 - `openEditor`
+- `finishEditing`
 - `notifyDraftUpdated`
 - `onFileChanged`
 - `onMarkdownUpdated`
 - `onEditorInit`
 - `onEditorSync`
 
-## Cursor Jump Behavior
+## Formatting and Shortcuts
 
-`Ctrl/Cmd + Click` captures nearby rendered text, then main process attempts to
-map that text back into markdown source and sets cursor position in the editor.
-Matching is text-based and best-effort by design.
+Supported editor shortcuts:
+
+- `Ctrl/Cmd + B`, `Ctrl/Cmd + I`, `Ctrl/Cmd + \``, `Ctrl/Cmd + K`
+- `Ctrl/Cmd + Shift + H`
+- `Ctrl/Cmd + Shift + 8`, `Ctrl/Cmd + Shift + 7`
+- `Ctrl/Cmd + Shift + .`, `Ctrl/Cmd + Shift + C`
+- `Ctrl/Cmd + /` for shortcut help
+- `Ctrl/Cmd + S` save
+- `Ctrl/Cmd + Enter` save + done editing
+
+Toolbar buttons intentionally prevent focus-steal on click, so selection/cursor
+does not jump while applying formatting.
+
+## Relative Asset Rendering
+
+Rendered markdown image/link paths are rewritten relative to the currently open
+markdown file so local assets resolve correctly (for example `docs/assets/*.png`
+from `README.md`).
 
 ## Python Renderer
 
@@ -106,16 +124,10 @@ Enabled markdown extensions:
 
 ## Test Coverage
 
-`tests/e2e/open-file.spec.js` currently covers:
+`tests/e2e/open-file.spec.js` covers:
 
-- opening and rendering markdown in the main window
-- opening popup editor, editing, and saving to disk
-- `Ctrl/Cmd + Click` launching editor and cursor jump near clicked content
-- formatting shortcuts and shortcut-help modal behavior
-
-## Current Status
-
-- Render-first + popup edit flow is implemented.
-- Live compare between rendered and raw markdown is implemented.
-- Keyboard shortcut and click-modifier entry points are implemented.
-- Toolbar formatting actions and help overlay are implemented.
+- open + render markdown
+- popup edit/save flow
+- `Ctrl/Cmd + Click` cursor jump open flow
+- README screenshot image rendering
+- formatting shortcuts + shortcuts modal
