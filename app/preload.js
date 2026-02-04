@@ -8,9 +8,27 @@ contextBridge.exposeInMainWorld("mdClient", {
     ipcRenderer.invoke("save-markdown", mdPath, content),
   renderMarkdownContent: (content) =>
     ipcRenderer.invoke("render-markdown-content", content),
+  openEditor: (options) => ipcRenderer.invoke("open-editor", options ?? {}),
+  notifyDraftUpdated: (mdPath, content) =>
+    ipcRenderer.send("markdown-draft-updated", mdPath, content),
   onFileChanged: (callback) => {
     ipcRenderer.on("file-changed", () => {
       callback();
+    });
+  },
+  onMarkdownUpdated: (callback) => {
+    ipcRenderer.on("markdown-updated", (_event, content) => {
+      callback(content);
+    });
+  },
+  onEditorInit: (callback) => {
+    ipcRenderer.on("editor-init", (_event, state) => {
+      callback(state);
+    });
+  },
+  onEditorSync: (callback) => {
+    ipcRenderer.on("editor-sync", (_event, state) => {
+      callback(state);
     });
   }
 });

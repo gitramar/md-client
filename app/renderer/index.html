@@ -15,8 +15,7 @@
       <header class="topbar">
         <div class="brand">mdview</div>
         <div class="topbar-right">
-          <button id="save-button" class="btn btn-primary" disabled>Save</button>
-          <button id="revert-button" class="btn" disabled>Revert</button>
+          <button id="edit-button" class="btn btn-primary" disabled>Edit</button>
           <div class="file" id="file-path">No file loaded</div>
         </div>
       </header>
@@ -24,24 +23,11 @@
         <div id="empty-state" class="empty-state">
           Open a markdown file: <code>mdview path/to/file.md</code>
         </div>
-        <div id="editor-layout" class="editor-layout">
-          <section class="panel">
-            <div class="panel-head">
-              <span>Markdown</span>
-              <span id="dirty-indicator" class="dirty-indicator"></span>
-            </div>
-            <textarea
-              id="editor"
-              class="editor"
-              spellcheck="false"
-              placeholder="Type markdown here..."
-            ></textarea>
-          </section>
-          <section class="panel">
-            <div class="panel-head">Preview</div>
-            <article id="rendered" class="markdown"></article>
-          </section>
+        <div id="hint" class="hint">
+          Press <code>Ctrl/Cmd + Click</code> on text to jump to that spot in the
+          editor window.
         </div>
+        <article id="rendered" class="markdown panel rendered-panel"></article>
       </main>
     </div>
     <script src="renderer.js"></script>

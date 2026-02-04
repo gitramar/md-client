@@ -1,22 +1,20 @@
 const filePathEl = document.getElementById("file-path");
 const renderedEl = document.getElementById("rendered");
 const emptyStateEl = document.getElementById("empty-state");
-const editorLayoutEl = document.getElementById("editor-layout");
-const editorEl = document.getElementById("editor");
-const saveButtonEl = document.getElementById("save-button");
-const revertButtonEl = document.getElementById("revert-button");
-const dirtyIndicatorEl = document.getElementById("dirty-indicator");
+const editButtonEl = document.getElementById("edit-button");
 
 let filePath = "";
 let currentContent = "";
-let fileDirty = false;
-let renderTimer = null;
 
-function setDirty(isDirty) {
-  fileDirty = isDirty;
-  saveButtonEl.disabled = !filePath || !isDirty;
-  revertButtonEl.disabled = !filePath || !isDirty;
-  dirtyIndicatorEl.textContent = isDirty ? "Unsaved changes" : "";
+function nearestSourceText(target) {
+  if (!(target instanceof Element)) {
+    return "";
+  }
+  const container = target.closest(
+    "h1, h2, h3, h4, h5, h6, p, li, blockquote, td, th, code, pre"
+  );
+  const text = (container ? container.textContent : target.textContent) || "";
+  return text.replace(/\s+/g, " ").trim().slice(0, 140);
 }
 
 async function renderPreview(content) {
@@ -28,80 +26,53 @@ async function renderPreview(content) {
   }
 }
 
-function schedulePreviewRender(content) {
-  if (renderTimer) {
-    clearTimeout(renderTimer);
-  }
-  renderTimer = setTimeout(() => {
-    renderPreview(content);
-  }, 180);
-}
-
 async function loadMarkdown() {
   filePath = await window.mdClient.getFilePath();
   if (!filePath) {
-    editorLayoutEl.style.display = "none";
     renderedEl.innerHTML = "";
     emptyStateEl.style.display = "flex";
     filePathEl.textContent = "No file loaded";
-    editorEl.value = "";
-    setDirty(false);
+    editButtonEl.disabled = true;
     return;
   }
 
   filePathEl.textContent = filePath;
   emptyStateEl.style.display = "none";
-  editorLayoutEl.style.display = "grid";
+  editButtonEl.disabled = false;
 
   try {
     currentContent = await window.mdClient.readMarkdown(filePath);
-    editorEl.value = currentContent;
-    setDirty(false);
     await renderPreview(currentContent);
   } catch (error) {
     renderedEl.innerHTML = `<pre class="error">${error.message}</pre>`;
   }
 }
 
-editorEl.addEventListener("input", () => {
-  const next = editorEl.value;
-  setDirty(next !== currentContent);
-  schedulePreviewRender(next);
-});
-
-saveButtonEl.addEventListener("click", async () => {
-  if (!filePath || !fileDirty) {
+editButtonEl.addEventListener("click", async () => {
+  if (!filePath) {
     return;
   }
-  await window.mdClient.saveMarkdown(filePath, editorEl.value);
-  currentContent = editorEl.value;
-  setDirty(false);
+  await window.mdClient.openEditor({});
 });
 
-revertButtonEl.addEventListener("click", async () => {
-  if (!filePath || !fileDirty) {
+renderedEl.addEventListener("click", async (event) => {
+  if (!filePath) {
     return;
   }
-  editorEl.value = currentContent;
-  setDirty(false);
-  await renderPreview(currentContent);
+  if (!(event.ctrlKey || event.metaKey)) {
+    return;
+  }
+  event.preventDefault();
+  const sourceText = nearestSourceText(event.target);
+  await window.mdClient.openEditor({ sourceText });
 });
 
-window.addEventListener("keydown", async (event) => {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
-    event.preventDefault();
-    if (filePath && fileDirty) {
-      await window.mdClient.saveMarkdown(filePath, editorEl.value);
-      currentContent = editorEl.value;
-      setDirty(false);
-    }
-  }
+window.mdClient.onMarkdownUpdated((content) => {
+  currentContent = content;
+  renderPreview(content);
 });
 
 window.mdClient.onFileChanged(() => {
-  if (fileDirty) {
-    return;
-  }
   loadMarkdown();
 });
 

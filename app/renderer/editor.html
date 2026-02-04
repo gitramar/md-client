@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mdview editor</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="editor-window">
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">mdview edit</div>
+        <div class="topbar-right">
+          <button id="save-button" class="btn btn-primary" disabled>Save</button>
+          <button id="revert-button" class="btn" disabled>Revert</button>
+          <div id="dirty-indicator" class="dirty-indicator"></div>
+          <div class="file" id="file-path">No file loaded</div>
+        </div>
+      </header>
+      <main class="content">
+        <div id="empty-state" class="empty-state">
+          No file loaded. Close this window and open a markdown file first.
+        </div>
+        <div id="editor-layout" class="editor-layout" style="display: none">
+          <section class="panel">
+            <div class="panel-head">Markdown</div>
+            <textarea
+              id="editor"
+              class="editor"
+              spellcheck="false"
+              placeholder="Type markdown here..."
+            ></textarea>
+          </section>
+          <section class="panel">
+            <div class="panel-head">Preview</div>
+            <article id="rendered" class="markdown"></article>
+          </section>
+        </div>
+      </main>
+    </div>
+    <script src="editor.js"></script>
+  </body>
+</html>

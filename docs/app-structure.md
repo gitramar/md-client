@@ -1,14 +1,13 @@
-# md-client: App Structure and Flow
+# md-client: App Structure and Current Status
 
-This document is a longer example Markdown file you can open in mdview. It
-walks through the project structure, runtime behavior, and testing strategy.
+This document reflects the current application flow after adding popup editing.
 
 ## Goals
 
-- Provide a standalone Markdown viewer that is easy to invoke from the CLI.
-- Render Markdown into HTML inside an Electron window.
-- Keep a dark theme by default.
-- Auto-refresh when the Markdown file changes.
+- Open a local `.md` file from CLI with near-zero setup friction.
+- Render Markdown by default in the main Electron window.
+- Allow editing in a separate window while keeping the rendered view visible.
+- Keep edits and preview synchronized in real time.
 
 ## Repository Layout
 
@@ -22,6 +21,8 @@ md-client/
     renderer/
       index.html
       renderer.js
+      editor.html
+      editor.js
       styles.css
   bin/
     mdview.js
@@ -38,110 +39,79 @@ md-client/
   playwright.config.js
 ```
 
-## App Startup Sequence
+## Startup Sequence
 
-1. The user runs `node bin\mdview.js path\to\file.md`.
-2. The CLI entrypoint launches Electron and passes the app root plus the file path.
-3. Electron loads `app/main.js`.
-4. The main process resolves the Markdown file path from `process.argv`.
-5. A `BrowserWindow` is created and `app/renderer/index.html` is loaded.
-6. The renderer calls `window.mdClient.getFilePath()`.
-7. The renderer calls `window.mdClient.renderMarkdown(path)` to request HTML.
-8. The main process spawns the Python renderer and returns HTML.
-9. The HTML is injected into the page.
+1. User runs `node bin\mdview.js path\to\file.md`.
+2. `bin/mdview.js` launches Electron with the app path and markdown path args.
+3. `app/main.js` resolves the target `.md` file and creates the main window.
+4. Main window loads `app/renderer/index.html` (render-only mode).
+5. Renderer requests file contents and rendered HTML through preload IPC.
+6. Main process renders via Python (`render_markdown.py`) and returns HTML.
 
-## Main Process
+## Window Model
 
-The main process controls:
+- Main window:
+  - Rendered Markdown only.
+  - `Edit` button to open editor popup.
+  - `Ctrl/Cmd + Click` on rendered text opens popup and requests cursor jump.
+- Editor popup window:
+  - Markdown textarea + live preview side-by-side.
+  - Save/Revert actions.
+  - `Ctrl/Cmd + S` save shortcut.
 
-- Window creation and default theme.
-- Watching the Markdown file for changes.
-- IPC handlers for:
-  - `get-file-path`
-  - `render-markdown`
+## Sync Behavior
 
-### Rendering Flow
+- Editor typing sends draft updates to main process.
+- Main process broadcasts draft updates to the main window preview.
+- Main window updates rendered output live while edits are unsaved.
+- Saving writes markdown to disk and clears draft state.
+- File watcher (`fs.watch`) notifies both windows when file changes on disk.
 
-When `render-markdown` is invoked:
+## IPC Surface
 
-1. Validate the file exists.
-2. Spawn `python app/python/render_markdown.py <file>`.
-3. Collect stdout as HTML.
-4. Return HTML to the renderer.
-5. On error, surface the message to the renderer.
+Exposed through `app/preload.js`:
 
-## Renderer Process
+- `getFilePath`
+- `readMarkdown`
+- `saveMarkdown`
+- `renderMarkdown`
+- `renderMarkdownContent`
+- `openEditor`
+- `notifyDraftUpdated`
+- `onFileChanged`
+- `onMarkdownUpdated`
+- `onEditorInit`
+- `onEditorSync`
 
-The renderer is a small client:
+## Cursor Jump Behavior
 
-- Fetches the file path from the main process.
-- Calls the render IPC endpoint.
-- Injects HTML into the document.
-- Shows a friendly empty state when no file is provided.
-
-The UI is optimized for readable, dark themed docs with:
-
-- A top bar showing the app name and the open path.
-- A centered content column for the Markdown.
-- Styling for headings, code blocks, tables, and blockquotes.
+`Ctrl/Cmd + Click` captures nearby rendered text, then main process attempts to
+map that text back into markdown source and sets cursor position in the editor.
+Matching is text-based and best-effort by design.
 
 ## Python Renderer
 
-The Python script `app/python/render_markdown.py` is intentionally simple:
+`app/python/render_markdown.py` supports:
 
-- Reads the file in UTF-8.
-- Uses the `markdown` package to convert to HTML.
-- Enables:
-  - `fenced_code`
-  - `tables`
-  - `codehilite`
+- file path input
+- `--stdin` input (used for live preview rendering)
 
-If the file cannot be read, it returns a non-zero exit code and the error text
-goes to stderr.
+Enabled markdown extensions:
 
-## Auto-Refresh
+- `fenced_code`
+- `tables`
+- `codehilite`
 
-The main process uses `fs.watch()` to detect file changes. When the file changes
-the renderer gets a `file-changed` IPC message and reloads the Markdown content.
+## Test Coverage
 
-## E2E Test (Playwright + Electron)
+`tests/e2e/open-file.spec.js` currently covers:
 
-The E2E test launches Electron directly:
+- opening and rendering markdown in the main window
+- opening popup editor, editing, and saving to disk
+- `Ctrl/Cmd + Click` launching editor and cursor jump near clicked content
 
-```
-const electronApp = await electron.launch({
-  args: [appPath, filePath]
-});
-```
+## Current Status
 
-Then it:
-
-- Waits for the heading to appear.
-- Asserts the heading text.
-- Confirms that the table exists.
-
-This keeps the core flow covered while the app is still small.
-
-## Ideas for Future Enhancements
-
-- Add CLI flags:
-  - `--theme=dark|light`
-  - `--watch=false`
-  - `--css path\to\custom.css`
-  - `--title "Custom Title"`
-- Jump to a section anchor, for example `#usage` or `#tests`.
-- Show file open dialog if no path is provided.
-- Track recent files in app state.
-
-## Troubleshooting
-
-If the window opens without content:
-
-- Confirm the file path is correct.
-- Check `python` is on your PATH.
-- Ensure `pip install -r requirements.txt` has run successfully.
-
-If the app does not open:
-
-- Confirm Electron is installed: `npm install`.
-- Launch with `npm start` to check for startup errors.
+- Render-first + popup edit flow is implemented.
+- Live compare between rendered and raw markdown is implemented.
+- Keyboard shortcut and click-modifier entry points are implemented.
