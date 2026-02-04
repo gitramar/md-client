@@ -1,0 +1,17 @@
+{
+  "name": "md-client",
+  "version": "0.1.0",
+  "description": "Standalone Markdown viewer for CLI workflows",
+  "main": "app/main.js",
+  "bin": {
+    "mdview": "bin/mdview.js"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.42.1",
+    "electron": "^30.0.0"
+  }
+}

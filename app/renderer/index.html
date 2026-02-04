@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mdview</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">mdview</div>
+        <div class="topbar-right">
+          <button id="save-button" class="btn btn-primary" disabled>Save</button>
+          <button id="revert-button" class="btn" disabled>Revert</button>
+          <div class="file" id="file-path">No file loaded</div>
+        </div>
+      </header>
+      <main class="content">
+        <div id="empty-state" class="empty-state">
+          Open a markdown file: <code>mdview path/to/file.md</code>
+        </div>
+        <div id="editor-layout" class="editor-layout">
+          <section class="panel">
+            <div class="panel-head">
+              <span>Markdown</span>
+              <span id="dirty-indicator" class="dirty-indicator"></span>
+            </div>
+            <textarea
+              id="editor"
+              class="editor"
+              spellcheck="false"
+              placeholder="Type markdown here..."
+            ></textarea>
+          </section>
+          <section class="panel">
+            <div class="panel-head">Preview</div>
+            <article id="rendered" class="markdown"></article>
+          </section>
+        </div>
+      </main>
+    </div>
+    <script src="renderer.js"></script>
+  </body>
+</html>
