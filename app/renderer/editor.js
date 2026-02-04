@@ -7,6 +7,10 @@ const doneButtonEl = document.getElementById("done-button");
 const saveButtonEl = document.getElementById("save-button");
 const revertButtonEl = document.getElementById("revert-button");
 const dirtyIndicatorEl = document.getElementById("dirty-indicator");
+const shortcutHelpButtonEl = document.getElementById("shortcut-help-button");
+const formatToolbarEl = document.getElementById("format-toolbar");
+const shortcutsModalEl = document.getElementById("shortcuts-modal");
+const closeShortcutsButtonEl = document.getElementById("close-shortcuts-button");
 
 let filePath = "";
 let currentContent = "";
@@ -70,6 +74,20 @@ function setDirty(isDirty) {
   dirtyIndicatorEl.textContent = isDirty ? "Unsaved changes" : "";
 }
 
+function setEditorState(nextValue, selectionStart, selectionEnd = selectionStart) {
+  editorEl.value = nextValue;
+  editorEl.focus();
+  const start = Math.max(0, Math.min(selectionStart, editorEl.value.length));
+  const end = Math.max(start, Math.min(selectionEnd, editorEl.value.length));
+  editorEl.setSelectionRange(start, end);
+
+  setDirty(nextValue !== currentContent);
+  schedulePreviewRender(nextValue);
+  if (filePath) {
+    window.mdClient.notifyDraftUpdated(filePath, nextValue);
+  }
+}
+
 function placeCursor(offset) {
   if (typeof offset !== "number" || Number.isNaN(offset)) {
     editorEl.focus();
@@ -109,6 +127,151 @@ function applyState(state) {
   placeCursor(state.cursorOffset);
 }
 
+function getLineBounds(value, start, end) {
+  const lineStart = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+  const lineEndIndex = value.indexOf("\n", end);
+  const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
+  return { lineStart, lineEnd };
+}
+
+function toggleInlineWrap(open, close, placeholder) {
+  const value = editorEl.value;
+  const start = editorEl.selectionStart;
+  const end = editorEl.selectionEnd;
+  const selected = value.slice(start, end);
+  const before = value.slice(Math.max(0, start - open.length), start);
+  const after = value.slice(end, end + close.length);
+
+  if (start !== end && before === open && after === close) {
+    const nextValue =
+      value.slice(0, start - open.length) +
+      selected +
+      value.slice(end + close.length);
+    setEditorState(nextValue, start - open.length, end - open.length);
+    return;
+  }
+
+  if (start === end) {
+    const text = placeholder || "text";
+    const wrapped = `${open}${text}${close}`;
+    const nextValue = value.slice(0, start) + wrapped + value.slice(end);
+    setEditorState(nextValue, start + open.length, start + open.length + text.length);
+    return;
+  }
+
+  const wrapped = `${open}${selected}${close}`;
+  const nextValue = value.slice(0, start) + wrapped + value.slice(end);
+  setEditorState(nextValue, start + open.length, end + open.length);
+}
+
+function togglePrefix(prefix) {
+  const value = editorEl.value;
+  const start = editorEl.selectionStart;
+  const end = editorEl.selectionEnd;
+  const { lineStart, lineEnd } = getLineBounds(value, start, end);
+  const block = value.slice(lineStart, lineEnd);
+  const lines = block.split("\n");
+  const allHavePrefix = lines.every((line) => line.startsWith(prefix));
+  const nextLines = allHavePrefix
+    ? lines.map((line) => line.slice(prefix.length))
+    : lines.map((line) => (line.length ? `${prefix}${line}` : prefix.trimEnd()));
+  const nextBlock = nextLines.join("\n");
+  const nextValue = value.slice(0, lineStart) + nextBlock + value.slice(lineEnd);
+  const nextSelectionStart = allHavePrefix
+    ? Math.max(lineStart, start - prefix.length)
+    : start + prefix.length;
+  setEditorState(nextValue, nextSelectionStart, nextSelectionStart + nextBlock.length);
+}
+
+function toggleOrderedList() {
+  const value = editorEl.value;
+  const start = editorEl.selectionStart;
+  const end = editorEl.selectionEnd;
+  const { lineStart, lineEnd } = getLineBounds(value, start, end);
+  const block = value.slice(lineStart, lineEnd);
+  const lines = block.split("\n");
+  const orderedPrefix = /^\d+\.\s/;
+  const allOrdered = lines.every((line) => orderedPrefix.test(line));
+  const nextLines = allOrdered
+    ? lines.map((line) => line.replace(orderedPrefix, ""))
+    : lines.map((line, index) =>
+        line.length ? `${index + 1}. ${line.replace(orderedPrefix, "")}` : `${index + 1}. `
+      );
+  const nextBlock = nextLines.join("\n");
+  const nextValue = value.slice(0, lineStart) + nextBlock + value.slice(lineEnd);
+  setEditorState(nextValue, lineStart, lineStart + nextBlock.length);
+}
+
+function toggleHeading() {
+  const value = editorEl.value;
+  const start = editorEl.selectionStart;
+  const { lineStart, lineEnd } = getLineBounds(value, start, start);
+  const line = value.slice(lineStart, lineEnd);
+  const match = line.match(/^(#{1,3})\s+/);
+
+  let nextLine;
+  if (!match) {
+    nextLine = `# ${line}`;
+  } else if (match[1].length === 1) {
+    nextLine = `## ${line.slice(match[0].length)}`;
+  } else if (match[1].length === 2) {
+    nextLine = `### ${line.slice(match[0].length)}`;
+  } else {
+    nextLine = line.slice(match[0].length);
+  }
+
+  const nextValue = value.slice(0, lineStart) + nextLine + value.slice(lineEnd);
+  setEditorState(nextValue, lineStart, lineStart + nextLine.length);
+}
+
+function toggleCodeBlock() {
+  const value = editorEl.value;
+  const start = editorEl.selectionStart;
+  const end = editorEl.selectionEnd;
+  const selected = value.slice(start, end) || "code";
+  const wrapped = `\`\`\`\n${selected}\n\`\`\``;
+  const nextValue = value.slice(0, start) + wrapped + value.slice(end);
+  setEditorState(nextValue, start + 4, start + 4 + selected.length);
+}
+
+function applyFormatting(action) {
+  switch (action) {
+    case "bold":
+      toggleInlineWrap("**", "**", "bold text");
+      break;
+    case "italic":
+      toggleInlineWrap("*", "*", "italic text");
+      break;
+    case "code":
+      toggleInlineWrap("`", "`", "code");
+      break;
+    case "link":
+      toggleInlineWrap("[", "](https://example.com)", "link text");
+      break;
+    case "heading":
+      toggleHeading();
+      break;
+    case "bullet-list":
+      togglePrefix("- ");
+      break;
+    case "ordered-list":
+      toggleOrderedList();
+      break;
+    case "quote":
+      togglePrefix("> ");
+      break;
+    case "code-block":
+      toggleCodeBlock();
+      break;
+    default:
+      break;
+  }
+}
+
+function toggleShortcutsModal(show) {
+  shortcutsModalEl.style.display = show ? "flex" : "none";
+}
+
 async function saveIfDirty() {
   if (!filePath || !fileDirty) {
     return;
@@ -124,6 +287,36 @@ editorEl.addEventListener("input", () => {
   schedulePreviewRender(next);
   if (filePath) {
     window.mdClient.notifyDraftUpdated(filePath, next);
+  }
+});
+
+formatToolbarEl.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-format]");
+  if (!button) {
+    return;
+  }
+  applyFormatting(button.getAttribute("data-format"));
+});
+
+formatToolbarEl.addEventListener("mousedown", (event) => {
+  if (event.target.closest("[data-format]")) {
+    event.preventDefault();
+  }
+});
+
+shortcutHelpButtonEl.addEventListener("click", () => {
+  toggleShortcutsModal(true);
+});
+
+closeShortcutsButtonEl.addEventListener("click", () => {
+  toggleShortcutsModal(false);
+  editorEl.focus();
+});
+
+shortcutsModalEl.addEventListener("click", (event) => {
+  if (event.target === shortcutsModalEl) {
+    toggleShortcutsModal(false);
+    editorEl.focus();
   }
 });
 
@@ -147,19 +340,76 @@ revertButtonEl.addEventListener("click", async () => {
 });
 
 window.addEventListener("keydown", async (event) => {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+  const withMod = event.ctrlKey || event.metaKey;
+  if (!withMod) {
+    if (event.key === "Escape" && shortcutsModalEl.style.display === "flex") {
+      event.preventDefault();
+      toggleShortcutsModal(false);
+      editorEl.focus();
+    }
+    return;
+  }
+
+  const key = event.key.toLowerCase();
+  if (key === "s") {
     event.preventDefault();
     await saveIfDirty();
     return;
   }
-
-  if (
-    (event.ctrlKey || event.metaKey) &&
-    event.key.toLowerCase() === "enter"
-  ) {
+  if (key === "enter") {
     event.preventDefault();
     await saveIfDirty();
     await window.mdClient.finishEditing();
+    return;
+  }
+  if (key === "b") {
+    event.preventDefault();
+    applyFormatting("bold");
+    return;
+  }
+  if (key === "i") {
+    event.preventDefault();
+    applyFormatting("italic");
+    return;
+  }
+  if (key === "k") {
+    event.preventDefault();
+    applyFormatting("link");
+    return;
+  }
+  if (key === "`") {
+    event.preventDefault();
+    applyFormatting("code");
+    return;
+  }
+  if (event.code === "Slash") {
+    event.preventDefault();
+    toggleShortcutsModal(true);
+    return;
+  }
+  if (event.shiftKey && event.code === "Digit8") {
+    event.preventDefault();
+    applyFormatting("bullet-list");
+    return;
+  }
+  if (event.shiftKey && event.code === "Digit7") {
+    event.preventDefault();
+    applyFormatting("ordered-list");
+    return;
+  }
+  if (event.shiftKey && key === "h") {
+    event.preventDefault();
+    applyFormatting("heading");
+    return;
+  }
+  if (event.shiftKey && event.code === "Period") {
+    event.preventDefault();
+    applyFormatting("quote");
+    return;
+  }
+  if (event.shiftKey && key === "c") {
+    event.preventDefault();
+    applyFormatting("code-block");
   }
 });
 

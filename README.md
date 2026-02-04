@@ -8,8 +8,6 @@ live side-by-side editing and preview.
 here som e editinig new infomration and what not 
 
 
-
-
 ```bash
 
 npm install
@@ -34,6 +32,8 @@ Optional: `npm link` to make `mdview` available on your PATH.
 - Edit window includes:
   - Markdown source editor
   - Live preview
+  - Formatting toolbar (bold, italic, link, lists, quote, code)
+  - Shortcut help button (`?`) with key map
   - `Save`, `Revert`, and `Ctrl/Cmd + S`
 - While typing in the popup, the main window preview updates in real time.
 

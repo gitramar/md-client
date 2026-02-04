@@ -56,6 +56,8 @@ md-client/
   - `Ctrl/Cmd + Click` on rendered text opens popup and requests cursor jump.
 - Editor popup window:
   - Markdown textarea + live preview side-by-side.
+  - Formatting toolbar for common markdown operations.
+  - Shortcut help modal with discoverable key bindings.
   - Save/Revert actions.
   - `Ctrl/Cmd + S` save shortcut.
 
@@ -109,9 +111,11 @@ Enabled markdown extensions:
 - opening and rendering markdown in the main window
 - opening popup editor, editing, and saving to disk
 - `Ctrl/Cmd + Click` launching editor and cursor jump near clicked content
+- formatting shortcuts and shortcut-help modal behavior
 
 ## Current Status
 
 - Render-first + popup edit flow is implemented.
 - Live compare between rendered and raw markdown is implemented.
 - Keyboard shortcut and click-modifier entry points are implemented.
+- Toolbar formatting actions and help overlay are implemented.

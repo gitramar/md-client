@@ -106,3 +106,35 @@ test("renders README screenshot images", async () => {
 
   await electronApp.close();
 });
+
+test("supports markdown formatting shortcuts in editor", async () => {
+  const appPath = path.join(__dirname, "..", "..");
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "md-client-"));
+  const filePath = path.join(tempDir, "formatting.md");
+  fs.writeFileSync(filePath, "hello world", "utf-8");
+
+  const electronApp = await electron.launch({
+    args: [appPath, filePath]
+  });
+
+  const mainWindow = await electronApp.firstWindow();
+  const popupPromise = electronApp.waitForEvent("window");
+  await mainWindow.click("#edit-button");
+  const editorWindow = await popupPromise;
+
+  const editor = editorWindow.locator("#editor");
+  await editor.click();
+  await editor.press("ControlOrMeta+A");
+  await editor.press("ControlOrMeta+B");
+
+  await expect
+    .poll(async () =>
+      editorWindow.evaluate(() => document.getElementById("editor").value)
+    )
+    .toContain("**hello world**");
+
+  await editorWindow.keyboard.press("ControlOrMeta+/");
+  await expect(editorWindow.locator("#shortcuts-modal")).toBeVisible();
+
+  await electronApp.close();
+});
