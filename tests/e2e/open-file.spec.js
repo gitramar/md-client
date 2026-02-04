@@ -86,3 +86,23 @@ test("ctrl/cmd + click opens editor and jumps near clicked text", async () => {
   expect(cursorNearClickedLine).toBeTruthy();
   await electronApp.close();
 });
+
+test("renders README screenshot images", async () => {
+  const appPath = path.join(__dirname, "..", "..");
+  const filePath = path.join(appPath, "README.md");
+
+  const electronApp = await electron.launch({
+    args: [appPath, filePath]
+  });
+
+  const mainWindow = await electronApp.firstWindow();
+  await mainWindow.waitForFunction(() => {
+    const images = Array.from(document.querySelectorAll("img"));
+    return (
+      images.length >= 2 &&
+      images.every((image) => image.complete && image.naturalWidth > 0)
+    );
+  });
+
+  await electronApp.close();
+});

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file:;"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>mdview editor</title>
@@ -15,6 +15,7 @@
       <header class="topbar">
         <div class="brand">mdview edit</div>
         <div class="topbar-right">
+          <button id="done-button" class="btn">Done Editing</button>
           <button id="save-button" class="btn btn-primary" disabled>Save</button>
           <button id="revert-button" class="btn" disabled>Revert</button>
           <div id="dirty-indicator" class="dirty-indicator"></div>

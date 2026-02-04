@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld("mdClient", {
   openEditor: (options) => ipcRenderer.invoke("open-editor", options ?? {}),
   notifyDraftUpdated: (mdPath, content) =>
     ipcRenderer.send("markdown-draft-updated", mdPath, content),
+  finishEditing: () => ipcRenderer.invoke("finish-editing"),
   onFileChanged: (callback) => {
     ipcRenderer.on("file-changed", () => {
       callback();

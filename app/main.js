@@ -148,6 +148,9 @@ function createEditorWindow(initialState) {
   if (editorWindow && !editorWindow.isDestroyed()) {
     editorWindow.focus();
     editorWindow.webContents.send("editor-sync", initialState);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.hide();
+    }
     return;
   }
 
@@ -168,10 +171,18 @@ function createEditorWindow(initialState) {
   editorWindow.loadFile(path.join(__dirname, "renderer", "editor.html"));
   editorWindow.on("closed", () => {
     editorWindow = null;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
   });
   editorWindow.webContents.once("did-finish-load", () => {
     editorWindow.webContents.send("editor-init", initialState);
   });
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.hide();
+  }
 }
 
 app.on("ready", () => {
@@ -249,4 +260,15 @@ ipcMain.on("markdown-draft-updated", (_event, mdPath, content) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("markdown-updated", content);
   }
+});
+
+ipcMain.handle("finish-editing", async () => {
+  if (editorWindow && !editorWindow.isDestroyed()) {
+    editorWindow.close();
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+  }
+  return true;
 });

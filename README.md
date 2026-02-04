@@ -5,9 +5,15 @@ opens a dark-mode Electron window with rendered Markdown plus a popup editor for
 live side-by-side editing and preview.
 
 ## Setup
+here som e editinig new infomration and what not 
+
+
+
 
 ```bash
+
 npm install
+
 python -m pip install -r requirements.txt
 ```
 
@@ -30,6 +36,16 @@ Optional: `npm link` to make `mdview` available on your PATH.
   - Live preview
   - `Save`, `Revert`, and `Ctrl/Cmd + S`
 - While typing in the popup, the main window preview updates in real time.
+
+## Screenshots
+
+Main render window:
+
+![Main render window](docs/assets/main-render.png)
+
+Popup editor window:
+
+![Popup editor window](docs/assets/editor-popup.png)
 
 ## Tests
 
