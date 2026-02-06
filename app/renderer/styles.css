@@ -212,6 +212,52 @@ body {
   overflow-x: auto;
 }
 
+.preformatted {
+  margin: 0;
+  padding: 16px 18px 18px;
+  background: transparent;
+  color: var(--text);
+  white-space: pre;
+  overflow-x: auto;
+  font-family: "Cascadia Code", "Fira Code", "SFMono-Regular", Consolas,
+    "Liberation Mono", monospace;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.preformatted code {
+  display: block;
+}
+
+.codehilitetable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.codehilitetable td {
+  vertical-align: top;
+}
+
+.codehilitetable .linenos {
+  padding: 0 12px 0 0;
+  color: var(--muted);
+  text-align: right;
+  user-select: none;
+  border-right: 1px solid var(--border);
+}
+
+.codehilitetable .code {
+  padding-left: 12px;
+}
+
+.codehilite {
+  font-family: "Cascadia Code", "Fira Code", "SFMono-Regular", Consolas,
+    "Liberation Mono", monospace;
+  font-size: 14px;
+  line-height: 1.55;
+  background: transparent;
+}
+
 .markdown table {
   width: 100%;
   border-collapse: collapse;

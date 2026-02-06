@@ -1,10 +1,49 @@
 const filePathEl = document.getElementById("file-path");
 const renderedEl = document.getElementById("rendered");
 const emptyStateEl = document.getElementById("empty-state");
+const hintEl = document.getElementById("hint");
 const editButtonEl = document.getElementById("edit-button");
 
 let filePath = "";
 let currentContent = "";
+let fileType = "markdown";
+
+const markdownExtensions = new Set([".md", ".markdown", ".mdown", ".mdx"]);
+const textExtensions = new Set([".txt"]);
+const codeExtensions = new Set([
+  ".js",
+  ".ts",
+  ".py",
+  ".json",
+  ".yaml",
+  ".yml"
+]);
+const htmlExtensions = new Set([".html", ".htm"]);
+
+function getExtension(value) {
+  if (!value) {
+    return "";
+  }
+  const match = value.toLowerCase().match(/\.([^.\\/]+)$/);
+  return match ? `.${match[1]}` : "";
+}
+
+function getFileType(value) {
+  const ext = getExtension(value);
+  if (markdownExtensions.has(ext)) {
+    return "markdown";
+  }
+  if (htmlExtensions.has(ext)) {
+    return "html";
+  }
+  if (textExtensions.has(ext)) {
+    return "text";
+  }
+  if (codeExtensions.has(ext)) {
+    return "code";
+  }
+  return "text";
+}
 
 function toFileUrl(fsPath) {
   if (!fsPath) {
@@ -67,12 +106,44 @@ function nearestSourceText(target) {
   return text.replace(/\s+/g, " ").trim().slice(0, 140);
 }
 
+function renderPreformatted(content, kind) {
+  const pre = document.createElement("pre");
+  pre.className = `preformatted ${kind}`;
+  const code = document.createElement("code");
+  code.textContent = content ?? "";
+  pre.appendChild(code);
+  renderedEl.replaceChildren(pre);
+}
+
 async function renderPreview(content) {
   try {
-    const html = await window.mdClient.renderMarkdownContent(content);
-    renderedEl.innerHTML = html;
-    resolveRenderedAssetUrls(renderedEl, filePath);
+    if (fileType === "markdown") {
+      const html = await window.mdClient.renderMarkdownContent(content);
+      renderedEl.className = "markdown panel rendered-panel";
+      renderedEl.innerHTML = html;
+      resolveRenderedAssetUrls(renderedEl, filePath);
+      return;
+    }
+
+    if (fileType === "html") {
+      renderedEl.className = "panel rendered-panel";
+      renderedEl.innerHTML = content ?? "";
+      resolveRenderedAssetUrls(renderedEl, filePath);
+      return;
+    }
+
+    if (fileType === "code") {
+      const html = await window.mdClient.renderCodeContent(content, filePath);
+      renderedEl.className = "panel rendered-panel";
+      renderedEl.innerHTML = html;
+      resolveRenderedAssetUrls(renderedEl, filePath);
+      return;
+    }
+
+    renderedEl.className = "panel rendered-panel";
+    renderPreformatted(content, fileType);
   } catch (error) {
+    renderedEl.className = "panel rendered-panel";
     renderedEl.innerHTML = `<pre class="error">${error.message}</pre>`;
   }
 }
@@ -90,6 +161,8 @@ async function loadMarkdown() {
   filePathEl.textContent = filePath;
   emptyStateEl.style.display = "none";
   editButtonEl.disabled = false;
+  fileType = getFileType(filePath);
+  hintEl.style.display = fileType === "markdown" ? "block" : "none";
 
   try {
     currentContent = await window.mdClient.readMarkdown(filePath);
@@ -108,6 +181,9 @@ editButtonEl.addEventListener("click", async () => {
 
 renderedEl.addEventListener("click", async (event) => {
   if (!filePath) {
+    return;
+  }
+  if (fileType !== "markdown") {
     return;
   }
   if (!(event.ctrlKey || event.metaKey)) {

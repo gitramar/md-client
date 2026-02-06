@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld("mdClient", {
     ipcRenderer.invoke("save-markdown", mdPath, content),
   renderMarkdownContent: (content) =>
     ipcRenderer.invoke("render-markdown-content", content),
+  renderCodeContent: (content, sourcePath) =>
+    ipcRenderer.invoke("render-code-content", content, sourcePath),
   openEditor: (options) => ipcRenderer.invoke("open-editor", options ?? {}),
   notifyDraftUpdated: (mdPath, content) =>
     ipcRenderer.send("markdown-draft-updated", mdPath, content),

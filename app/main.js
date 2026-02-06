@@ -9,8 +9,30 @@ let filePath = "";
 let watcher = null;
 let draftContent = null;
 
+const supportedExtensions = new Set([
+  ".md",
+  ".markdown",
+  ".mdown",
+  ".mdx",
+  ".txt",
+  ".js",
+  ".ts",
+  ".py",
+  ".json",
+  ".yaml",
+  ".yml",
+  ".html",
+  ".htm"
+]);
+
 function resolveFilePath(argv) {
-  const candidate = argv.find((arg) => arg && arg.endsWith(".md"));
+  const candidate = argv.find((arg) => {
+    if (!arg) {
+      return false;
+    }
+    const ext = path.extname(arg.toLowerCase());
+    return supportedExtensions.has(ext);
+  });
   return candidate ? path.resolve(candidate) : "";
 }
 
@@ -69,6 +91,39 @@ function renderMarkdownContent(content) {
     });
 
     python.stdin.write(content, "utf-8");
+    python.stdin.end();
+  });
+}
+
+function renderCodeContent(content, sourcePath) {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.join(__dirname, "python", "render_markdown.py");
+    const args = [scriptPath, "--code", "--stdin"];
+    if (sourcePath) {
+      args.push("--path", sourcePath);
+    }
+    const python = spawn("python", args, { windowsHide: true });
+
+    let output = "";
+    let errorOutput = "";
+
+    python.stdout.on("data", (data) => {
+      output += data.toString();
+    });
+
+    python.stderr.on("data", (data) => {
+      errorOutput += data.toString();
+    });
+
+    python.on("close", (code) => {
+      if (code === 0) {
+        resolve(output);
+      } else {
+        reject(new Error(errorOutput || "Code render failed."));
+      }
+    });
+
+    python.stdin.write(content ?? "", "utf-8");
     python.stdin.end();
   });
 }
@@ -229,6 +284,10 @@ ipcMain.handle("save-markdown", async (_event, mdPath, content) => {
 
 ipcMain.handle("render-markdown-content", async (_event, content) => {
   return renderMarkdownContent(content ?? "");
+});
+
+ipcMain.handle("render-code-content", async (_event, content, sourcePath) => {
+  return renderCodeContent(content ?? "", sourcePath);
 });
 
 ipcMain.handle("open-editor", async (_event, options) => {

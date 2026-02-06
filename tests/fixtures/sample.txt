@@ -1,0 +1,2 @@
+Plain text fixture line 1.
+Plain text fixture line 2.

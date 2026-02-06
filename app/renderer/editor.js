@@ -11,11 +11,50 @@ const shortcutHelpButtonEl = document.getElementById("shortcut-help-button");
 const formatToolbarEl = document.getElementById("format-toolbar");
 const shortcutsModalEl = document.getElementById("shortcuts-modal");
 const closeShortcutsButtonEl = document.getElementById("close-shortcuts-button");
+const sourceLabelEl = document.getElementById("source-label");
 
 let filePath = "";
 let currentContent = "";
 let fileDirty = false;
 let renderTimer = null;
+let fileType = "markdown";
+
+const markdownExtensions = new Set([".md", ".markdown", ".mdown", ".mdx"]);
+const textExtensions = new Set([".txt"]);
+const codeExtensions = new Set([
+  ".js",
+  ".ts",
+  ".py",
+  ".json",
+  ".yaml",
+  ".yml"
+]);
+const htmlExtensions = new Set([".html", ".htm"]);
+
+function getExtension(value) {
+  if (!value) {
+    return "";
+  }
+  const match = value.toLowerCase().match(/\.([^.\\/]+)$/);
+  return match ? `.${match[1]}` : "";
+}
+
+function getFileType(value) {
+  const ext = getExtension(value);
+  if (markdownExtensions.has(ext)) {
+    return "markdown";
+  }
+  if (htmlExtensions.has(ext)) {
+    return "html";
+  }
+  if (textExtensions.has(ext)) {
+    return "text";
+  }
+  if (codeExtensions.has(ext)) {
+    return "code";
+  }
+  return "text";
+}
 
 function toFileUrl(fsPath) {
   if (!fsPath) {
@@ -98,12 +137,44 @@ function placeCursor(offset) {
   editorEl.setSelectionRange(clampedOffset, clampedOffset);
 }
 
+function renderPreformatted(content, kind) {
+  const pre = document.createElement("pre");
+  pre.className = `preformatted ${kind}`;
+  const code = document.createElement("code");
+  code.textContent = content ?? "";
+  pre.appendChild(code);
+  renderedEl.replaceChildren(pre);
+}
+
 async function renderPreview(content) {
   try {
-    const html = await window.mdClient.renderMarkdownContent(content);
-    renderedEl.innerHTML = html;
-    resolveRenderedAssetUrls(renderedEl, filePath);
+    if (fileType === "markdown") {
+      const html = await window.mdClient.renderMarkdownContent(content);
+      renderedEl.className = "markdown";
+      renderedEl.innerHTML = html;
+      resolveRenderedAssetUrls(renderedEl, filePath);
+      return;
+    }
+
+    if (fileType === "html") {
+      renderedEl.className = "";
+      renderedEl.innerHTML = content ?? "";
+      resolveRenderedAssetUrls(renderedEl, filePath);
+      return;
+    }
+
+    if (fileType === "code") {
+      const html = await window.mdClient.renderCodeContent(content, filePath);
+      renderedEl.className = "";
+      renderedEl.innerHTML = html;
+      resolveRenderedAssetUrls(renderedEl, filePath);
+      return;
+    }
+
+    renderedEl.className = "";
+    renderPreformatted(content, fileType);
   } catch (error) {
+    renderedEl.className = "";
     renderedEl.innerHTML = `<pre class="error">${error.message}</pre>`;
   }
 }
@@ -119,9 +190,16 @@ function schedulePreviewRender(content) {
 
 function applyState(state) {
   filePath = state.filePath || "";
+  fileType = getFileType(filePath);
   currentContent = state.content || "";
   filePathEl.textContent = filePath || "No file loaded";
   editorEl.value = currentContent;
+  const isMarkdown = fileType === "markdown";
+  formatToolbarEl.style.display = isMarkdown ? "flex" : "none";
+  shortcutHelpButtonEl.disabled = !isMarkdown;
+  shortcutHelpButtonEl.style.visibility = isMarkdown ? "visible" : "hidden";
+  sourceLabelEl.textContent = isMarkdown ? "Markdown" : "Source";
+  editorEl.placeholder = isMarkdown ? "Type markdown here..." : "Type here...";
   setDirty(false);
   renderPreview(currentContent);
   placeCursor(state.cursorOffset);
@@ -235,6 +313,9 @@ function toggleCodeBlock() {
 }
 
 function applyFormatting(action) {
+  if (fileType !== "markdown") {
+    return;
+  }
   switch (action) {
     case "bold":
       toggleInlineWrap("**", "**", "bold text");
@@ -305,6 +386,9 @@ formatToolbarEl.addEventListener("mousedown", (event) => {
 });
 
 shortcutHelpButtonEl.addEventListener("click", () => {
+  if (fileType !== "markdown") {
+    return;
+  }
   toggleShortcutsModal(true);
 });
 
@@ -360,6 +444,9 @@ window.addEventListener("keydown", async (event) => {
     event.preventDefault();
     await saveIfDirty();
     await window.mdClient.finishEditing();
+    return;
+  }
+  if (fileType !== "markdown") {
     return;
   }
   if (key === "b") {
