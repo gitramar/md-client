@@ -1,9 +1,13 @@
 import sys
+import re
 
 import markdown
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import TextLexer, get_lexer_for_filename
+
+LIST_MARKER_RE = r"^\s{0,3}(?:[*+-]|\d+[.)])\s+"
+FENCE_MARKER_RE = r"^\s{0,3}(```|~~~)"
 
 
 def parse_args():
@@ -47,9 +51,36 @@ def read_content(use_stdin: bool, path: str | None) -> str:
         return handle.read()
 
 
+def normalize_colon_prefixed_lists(content: str) -> str:
+    lines = content.splitlines()
+    normalized: list[str] = []
+    in_fence = False
+
+    for idx, line in enumerate(lines):
+        if re.match(FENCE_MARKER_RE, line):
+            in_fence = not in_fence
+            normalized.append(line)
+            continue
+
+        if (
+            not in_fence
+            and idx > 0
+            and re.match(LIST_MARKER_RE, line)
+            and lines[idx - 1].rstrip().endswith(":")
+            and lines[idx - 1].strip() != ""
+        ):
+            normalized.append("")
+
+        normalized.append(line)
+
+    trailing_newline = "\n" if content.endswith("\n") else ""
+    return "\n".join(normalized) + trailing_newline
+
+
 def render_markdown_content(content: str) -> str:
+    normalized_content = normalize_colon_prefixed_lists(content)
     return markdown.markdown(
-        content,
+        normalized_content,
         extensions=["fenced_code", "tables", "codehilite"],
         output_format="html5",
     )

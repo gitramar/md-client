@@ -138,3 +138,35 @@ test("supports markdown formatting shortcuts in editor", async () => {
 
   await electronApp.close();
 });
+
+test("renders list after colon without requiring a blank line", async () => {
+  const appPath = path.join(__dirname, "..", "..");
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "md-client-"));
+  const filePath = path.join(tempDir, "colon-list.md");
+  fs.writeFileSync(
+    filePath,
+    [
+      "# Colon list",
+      "",
+      "Opening sequence baseline:",
+      "1. Enter/open combat at opening distance.",
+      "2. Initiative phase: VINIT contest and role assignment."
+    ].join("\n"),
+    "utf-8"
+  );
+
+  const electronApp = await electron.launch({
+    args: [appPath, filePath]
+  });
+
+  const window = await electronApp.firstWindow();
+  await window.waitForSelector("text=Opening sequence baseline:");
+
+  await expect(window.locator("p")).toContainText("Opening sequence baseline:");
+  await expect(window.locator("ol li")).toHaveCount(2);
+  await expect(window.locator("ol li").first()).toContainText(
+    "Enter/open combat at opening distance."
+  );
+
+  await electronApp.close();
+});
